@@ -48,6 +48,10 @@ const cacheStatusElement = document.getElementById('cache-status');
 const cacheProgressContainer = document.getElementById('cache-progress-container');
 const cacheProgressBar = document.getElementById('cache-progress-bar');
 const cacheProgressText = document.getElementById('cache-progress-text');
+
+// Set default paths (adjust if necessary for typical installations)
+dduPathInput.value = 'C:\\Program Files\\Display Driver Uninstaller\\Display Driver Uninstaller.exe';
+nvciPathInput.value = 'C:\\Program Files\\NVCleanstall\\NVCleanstall.exe';
 const cacheLogElement = document.getElementById('cache-log');
 const clearCacheLogBtn = document.getElementById('clear-cache-log');
 const saveCacheLogBtn = document.getElementById('save-cache-log');
@@ -513,7 +517,7 @@ startProcessBtn.addEventListener('click', async () => {
   if (!validateInputs()) {
     return;
   }
-  
+
   // Show confirmation dialog
   const confirmation = await dialog.showMessageBox({
     type: 'warning',
@@ -521,203 +525,272 @@ startProcessBtn.addEventListener('click', async () => {
     message: 'Ready to start the driver installation process?',
     detail: `This process will guide you through creating a custom driver package with NVCleanInstall, then uninstalling your current driver with DDU, and finally automatically installing the new driver.\n\nMake sure all your work is saved before continuing.`,
     buttons: ['Cancel', 'Start Process'],
-    defaultId: 0,
-    cancelId: 0
+    defaultId: 1, // Default to 'Start Process'
+    cancelId: 0 // 'Cancel' button
   });
-  
-  if (confirmation.response !== 1) {
-    addLog('Operation canceled by user', 'info');
+
+  if (confirmation.response !== 1) { // 1 is 'Start Process'
+    addLog('Operation canceled by user before starting.', 'info');
     return;
   }
-  
+
+  // --- Check for existing packaged driver ---
+  let skipStep1 = false;
+  let existingDriverPath = null;
+  try {
+    addLog('Checking for existing packaged driver in Downloads...', 'info');
+    const checkResult = await ipcRenderer.invoke('check-existing-packaged-driver');
+
+    if (checkResult.error) {
+       addLog(`Warning: Could not check for existing driver: ${checkResult.error}`, 'warning');
+    } else if (checkResult.found) {
+      addLog(`Found existing driver: ${checkResult.filename}`, 'info');
+      const skipConfirmation = await dialog.showMessageBox({
+        type: 'question',
+        title: 'Existing Driver Found',
+        message: `Found an existing packaged driver:\n${checkResult.filename}\n\nDo you want to use this driver and skip Step 1 (NVCleanstall)?`,
+        buttons: ['Cancel', 'Use Existing Driver', 'Run Step 1 Anyway'],
+        defaultId: 1, // Default to 'Use Existing Driver'
+        cancelId: 0 // 'Cancel' button
+      });
+
+      if (skipConfirmation.response === 0) { // Cancel
+        addLog('Operation canceled by user after finding existing driver.', 'info');
+        return;
+      } else if (skipConfirmation.response === 1) { // Use Existing Driver
+        skipStep1 = true;
+        existingDriverPath = checkResult.path;
+        addLog(`User chose to skip Step 1 and use existing driver: ${existingDriverPath}`, 'info');
+      } else { // Run Step 1 Anyway (response === 2)
+        addLog('User chose to run Step 1 even though an existing driver was found.', 'info');
+      }
+    } else {
+       addLog('No existing packaged driver found in Downloads.', 'info');
+    }
+  } catch (checkError) {
+    addLog(`Error checking for existing driver: ${checkError.message}. Proceeding with Step 1.`, 'warning');
+    // Proceed without skipping if check fails
+  }
+  // --- End check ---
+
+
   const dduPath = dduPathInput.value.trim();
   const nvciPath = nvciPathInput.value.trim();
-  
+
   try {
-    // Disable inputs and button
+    // Disable inputs and button (do this AFTER the check and potential cancel)
     dduPathInput.disabled = true;
     nvciPathInput.disabled = true;
     driverVersionSelector.disabled = true;
     refreshDriversBtn.disabled = true;
     downloadDriverBtn.disabled = true;
     startProcessBtn.disabled = true;
-    
-    // Reset workflow steps
-    driverInstallState.currentStep = 1;
-    updateStepStatus(1, 'in-progress');
-    updateStepStatus(2, 'waiting', 'Waiting for previous step');
-    updateStepStatus(3, 'waiting', 'Waiting for previous step');
-    
-    // Update status
-    updateStatus('Running: Step 1 - Create Custom Driver Package', 'running');
-    addLog('Starting the driver installation process...', 'info');
-    
-    // Step 1: Run NVCleanInstall to create custom driver
-    try {
-      addLog('Launching NVCleanInstall to create a custom driver package...', 'info');
-      addLog(`NVCleanInstall path: ${nvciPath}`, 'info');
-      addLog(`Driver path: ${driverInstallState.driverDownloadPath}`, 'info');
-      
-      // Launch NVCleanInstall with the driver file
-      const nvciResult = await ipcRenderer.invoke('launch-nvci-prepare', nvciPath, driverInstallState.driverDownloadPath);
-      
-      if (!nvciResult.success) {
-        throw new Error(nvciResult.message);
+
+    if (skipStep1) {
+      // --- Logic for Skipping Step 1 ---
+      driverInstallState.customDriverPath = existingDriverPath; // Use the found driver path
+      driverInstallState.currentStep = 2; // Start at step 2
+      updateStepStatus(1, 'skipped', 'Skipped - Using existing driver');
+      updateStepStatus(2, 'in-progress');
+      updateStepStatus(3, 'waiting', 'Waiting for previous step');
+      updateStatus('Running: Step 2 - Uninstall Current Drivers', 'running');
+      addLog('Skipping Step 1 as requested.', 'info');
+      // Directly proceed to Step 2 logic below
+
+    } else {
+      // --- Original Logic for Step 1 ---
+      driverInstallState.currentStep = 1;
+      updateStepStatus(1, 'in-progress');
+      updateStepStatus(2, 'waiting', 'Waiting for previous step');
+      updateStepStatus(3, 'waiting', 'Waiting for previous step');
+      updateStatus('Running: Step 1 - Create Custom Driver Package', 'running');
+      addLog('Starting Step 1: Create Custom Driver Package...', 'info');
+
+      // Step 1: Run NVCleanInstall to create custom driver
+      try {
+        addLog('Launching NVCleanInstall to create a custom driver package...', 'info');
+        addLog(`NVCleanInstall path: ${nvciPath}`, 'info');
+        addLog(`Driver path: ${driverInstallState.driverDownloadPath}`, 'info');
+
+        // Launch NVCleanInstall with the driver file
+        const nvciResult = await ipcRenderer.invoke('launch-nvci-prepare', nvciPath, driverInstallState.driverDownloadPath);
+
+        if (!nvciResult.success) {
+          throw new Error(nvciResult.message);
+        }
+
+        driverInstallState.nvciProcessId = nvciResult.processId;
+
+        // Update step to monitoring status
+        updateStepStatus(1, 'monitoring', 'NVCleanInstall is open - please create your custom package');
+        addLog('NVCleanInstall is now open. Please create your custom driver package.', 'info');
+        addLog('The app will monitor the process and proceed once the package is created.', 'info');
+
+        // Start monitoring for completion
+        const customDriverInfo = await ipcRenderer.invoke('monitor-nvci-completion');
+
+        if (customDriverInfo.success) {
+          driverInstallState.customDriverPath = customDriverInfo.driverPath; // Path is set here
+          updateStepStatus(1, 'completed', 'Custom driver package created');
+          addLog(`Custom driver package created successfully at: ${customDriverInfo.driverPath}`, 'success');
+        } else {
+          throw new Error(customDriverInfo.message || 'Failed to detect custom driver package');
+        }
+
+      } catch (nvciError) {
+        updateStepStatus(1, 'error', `Failed: ${nvciError.message}`);
+        addLog(`Step 1 Error: ${nvciError.message}`, 'error');
+        // Re-enable inputs on failure before throwing
+        dduPathInput.disabled = false;
+        nvciPathInput.disabled = false;
+        driverVersionSelector.disabled = false;
+        refreshDriversBtn.disabled = false;
+        downloadDriverBtn.disabled = false;
+        startProcessBtn.disabled = false;
+        throw new Error(`Step 1 failed: ${nvciError.message}`); // Propagate error to outer catch
       }
-      
-      driverInstallState.nvciProcessId = nvciResult.processId;
-      
-      // Update step to monitoring status
-      updateStepStatus(1, 'monitoring', 'NVCleanInstall is open - please create your custom package');
-      addLog('NVCleanInstall is now open. Please create your custom driver package.', 'info');
-      addLog('The app will monitor the process and proceed once the package is created.', 'info');
-      
-      // Start monitoring for completion
-      const customDriverInfo = await ipcRenderer.invoke('monitor-nvci-completion');
-      
-      if (customDriverInfo.success) {
-        driverInstallState.customDriverPath = customDriverInfo.driverPath;
-        updateStepStatus(1, 'completed', 'Custom driver package created');
-        addLog(`Custom driver package created successfully at: ${customDriverInfo.driverPath}`, 'success');
-      } else {
-        throw new Error(customDriverInfo.message || 'Failed to detect custom driver package');
-      }
-      
-    } catch (nvciError) {
-      updateStepStatus(1, 'error', 'Failed to create custom package');
-      addLog(`Step 1 Error: ${nvciError.message}`, 'error');
-      throw new Error(`Step 1 failed: ${nvciError.message}`);
+      // --- End Original Logic for Step 1 ---
     }
-    
-    // Step 2: Run DDU to uninstall current drivers
-    driverInstallState.currentStep = 2;
-    updateStepStatus(2, 'in-progress');
+
+
+    // --- Step 2: Run DDU (Common path for both skipped and non-skipped Step 1) ---
+    if (driverInstallState.currentStep < 2) driverInstallState.currentStep = 2; // Ensure step is 2 if coming from step 1
+    if (!skipStep1) updateStepStatus(2, 'in-progress'); // Update status only if not already set by skip logic
     updateStatus('Running: Step 2 - Uninstall Current Drivers', 'running');
-    
+
     try {
       addLog('Launching DDU to uninstall current NVIDIA drivers...', 'info');
       addLog(`DDU path: ${dduPath}`, 'info');
-      
-      // Launch DDU 
-      const dduResult = await ipcRenderer.invoke('launch-ddu', dduPath);
-      
-      if (!dduResult.success) {
-        throw new Error(dduResult.message);
+
+      // Launch DDU
+      const dduLaunchResult = await ipcRenderer.invoke('launch-ddu', dduPath);
+      if (!dduLaunchResult.success) {
+        throw new Error(dduLaunchResult.message);
       }
-      
-      driverInstallState.dduProcessId = dduResult.processId;
-      
+
       // Update step to monitoring status
-      updateStepStatus(2, 'monitoring', 'DDU is open - please uninstall your drivers');
-      addLog('DDU is now open. Please use it to uninstall your current NVIDIA drivers.', 'info');
-      addLog('The app will monitor the process and proceed once uninstallation is complete.', 'info');
-      
-      // Start monitoring for completion
-      const dduCompletionInfo = await ipcRenderer.invoke('monitor-ddu-completion');
-      
-      if (dduCompletionInfo.success) {
-        updateStepStatus(2, 'completed', 'Driver uninstallation complete');
-        addLog('Driver uninstallation completed successfully', 'success');
+      updateStepStatus(2, 'monitoring', 'DDU is open - please follow its instructions');
+      addLog('DDU is now open. Please follow its instructions (usually "Clean and restart").', 'info');
+      addLog('The app will monitor for DDU completion and potential reboot.', 'info');
+
+      // Monitor DDU completion
+      const dduMonitorResult = await ipcRenderer.invoke('monitor-ddu-completion');
+
+      if (dduMonitorResult.success) {
+         updateStepStatus(2, 'completed', 'DDU process completed');
+         addLog('DDU process completed.', 'success');
+         if (dduMonitorResult.rebootNeeded) {
+            addLog('DDU indicated a reboot is needed. Please reboot your computer manually.', 'warning');
+            updateStatus('Action Required: Reboot your computer', 'warning');
+            // Optionally prompt user to confirm reboot before proceeding? For now, just inform.
+            await dialog.showMessageBox({
+                type: 'info',
+                title: 'Reboot Required',
+                message: 'DDU has completed, but a system reboot is required before installing the new driver.',
+                detail: 'Please reboot your computer now. After rebooting, re-launch this application to continue with Step 3 (Driver Installation).',
+                buttons: ['OK']
+            });
+            // Stop the process here, user needs to reboot and restart app
+            // Re-enable button to allow restart? Maybe not.
+            startProcessBtn.disabled = false; // Allow restart? Maybe better to keep disabled.
+            return; // Exit the function
+         }
       } else {
-        throw new Error(dduCompletionInfo.message || 'Failed to uninstall drivers');
+         throw new Error(dduMonitorResult.message || 'Failed to monitor DDU completion');
       }
-      
+
     } catch (dduError) {
-      updateStepStatus(2, 'error', 'Driver uninstallation failed');
+      updateStepStatus(2, 'error', `Failed: ${dduError.message}`);
       addLog(`Step 2 Error: ${dduError.message}`, 'error');
-      throw new Error(`Step 2 failed: ${dduError.message}`);
+      // Re-enable inputs on failure before throwing
+      dduPathInput.disabled = false;
+      nvciPathInput.disabled = false;
+      driverVersionSelector.disabled = false;
+      refreshDriversBtn.disabled = false;
+      downloadDriverBtn.disabled = false;
+      startProcessBtn.disabled = false;
+      throw new Error(`Step 2 failed: ${dduError.message}`); // Propagate error to outer catch
     }
-    
-    // Step 3: Install the custom driver
+    // --- End Step 2 ---
+
+
+    // --- Step 3: Install Custom Driver ---
+    // (This part only runs if Step 2 completed successfully WITHOUT needing a reboot)
     driverInstallState.currentStep = 3;
     updateStepStatus(3, 'in-progress');
-    updateStatus('Running: Step 3 - Install New Drivers', 'running');
-    
+    updateStatus('Running: Step 3 - Install Custom Driver', 'running');
+
     try {
-      if (!driverInstallState.customDriverPath) {
-        throw new Error('Custom driver package path not found');
-      }
-      
-      addLog('Starting installation of the custom driver package...', 'info');
-      addLog(`Custom driver path: ${driverInstallState.customDriverPath}`, 'info');
-      
-      // Run the custom driver installer
-      const installResult = await ipcRenderer.invoke('install-custom-driver', driverInstallState.customDriverPath);
-      
-      if (!installResult.success) {
-        throw new Error(installResult.message);
-      }
-      
-      driverInstallState.installProcessId = installResult.processId;
-      updateStepStatus(3, 'monitoring', 'Driver installation in progress');
-      
-      // Monitor installation progress
-      const installCompletionInfo = await ipcRenderer.invoke('monitor-driver-installation');
-      
-      if (installCompletionInfo.success) {
-        updateStepStatus(3, 'completed', 'Driver installation complete');
-        addLog('Driver installation completed successfully', 'success');
-      } else {
-        throw new Error(installCompletionInfo.message || 'Failed to install driver');
-      }
-      
+       addLog('Starting installation of the custom driver package...', 'info');
+       addLog(`Custom driver path: ${driverInstallState.customDriverPath}`, 'info');
+
+       if (!driverInstallState.customDriverPath) {
+           throw new Error('Custom driver path is not set. Cannot proceed.');
+       }
+
+       // Launch installer
+       const installResult = await ipcRenderer.invoke('install-custom-driver', driverInstallState.customDriverPath);
+       if (!installResult.success) {
+           throw new Error(installResult.message);
+       }
+
+       // Update step to monitoring status
+       updateStepStatus(3, 'monitoring', 'Driver installer is running...');
+       addLog('NVIDIA driver installer is running. Please follow its prompts.', 'info');
+       addLog('The app will monitor for completion.', 'info');
+
+       // Monitor installation
+       const monitorResult = await ipcRenderer.invoke('monitor-driver-installation');
+
+       if (monitorResult.success) {
+           updateStepStatus(3, 'completed', 'Driver installation completed');
+           addLog('Custom driver installation completed successfully.', 'success');
+           updateStatus('Process Completed Successfully!', 'success');
+       } else {
+           throw new Error(monitorResult.message || 'Failed to confirm driver installation completion');
+       }
+
     } catch (installError) {
-      updateStepStatus(3, 'error', 'Driver installation failed');
-      addLog(`Step 3 Error: ${installError.message}`, 'error');
-      throw new Error(`Step 3 failed: ${installError.message}`);
+       updateStepStatus(3, 'error', `Failed: ${installError.message}`);
+       addLog(`Step 3 Error: ${installError.message}`, 'error');
+       // Re-enable inputs on failure before throwing
+       dduPathInput.disabled = false;
+       nvciPathInput.disabled = false;
+       driverVersionSelector.disabled = false;
+       refreshDriversBtn.disabled = false;
+       downloadDriverBtn.disabled = false;
+       startProcessBtn.disabled = false;
+       throw new Error(`Step 3 failed: ${installError.message}`); // Propagate error to outer catch
     }
-    
-    // All steps completed successfully
-    updateStatus('Complete: Driver Installation Successful', 'success');
-    addLog('The entire process has completed successfully!', 'success');
-    addLog('Your NVIDIA drivers have been updated.', 'info');
-    
-    // Ask user if they want to restart now
-    const restartDialog = await dialog.showMessageBox({
-      type: 'question',
-      title: 'Restart Recommended',
-      message: 'Do you want to restart your computer now?',
-      detail: 'A restart is recommended to complete the driver installation process.',
-      buttons: ['Later', 'Restart Now'],
-      defaultId: 0,
-      cancelId: 0
-    });
-    
-    if (restartDialog.response === 1) {
-      // User chose to restart
-      addLog('Initiating system restart...', 'info');
-      
-      // Execute restart command
-      try {
-        await ipcRenderer.invoke('restart-computer');
-      } catch (error) {
-        addLog(`Unable to restart automatically: ${error.message}`, 'error');
-        addLog('Please restart your computer manually.', 'warning');
-      }
-    } else {
-      addLog('Restart postponed. Please restart your computer manually soon.', 'warning');
-    }
-  } catch (error) {
-    addLog(`Error: ${error.message}`, 'error');
-    updateStatus('Error: Process Failed', 'error');
-    
-    // Show error dialog
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'Driver Installation Failed',
-      message: 'The driver installation process encountered an error.',
-      detail: `Error details: ${error.message}\n\nPlease check the log for more information.`,
-      buttons: ['OK'],
-      defaultId: 0
-    });
-  } finally {
-    // Re-enable inputs and button
+    // --- End Step 3 ---
+
+    // Re-enable inputs on successful completion
     dduPathInput.disabled = false;
     nvciPathInput.disabled = false;
     driverVersionSelector.disabled = false;
     refreshDriversBtn.disabled = false;
     downloadDriverBtn.disabled = false;
     startProcessBtn.disabled = false;
+
+  } catch (error) {
+    // Catch errors propagated from Steps 1, 2, or 3
+    updateStatus(`Error: ${error.message}`, 'error');
+    addLog(`Process failed: ${error.message}`, 'error');
+    // Ensure inputs are re-enabled if an error occurred mid-process
+    dduPathInput.disabled = false;
+    nvciPathInput.disabled = false;
+    driverVersionSelector.disabled = false;
+    refreshDriversBtn.disabled = false;
+    downloadDriverBtn.disabled = false;
+    startProcessBtn.disabled = false;
+  } finally {
+    // Re-enable inputs and button (ensure this happens even if reboot is needed and we return early)
+    dduPathInput.disabled = false;
+    nvciPathInput.disabled = false;
+    driverVersionSelector.disabled = false;
+    refreshDriversBtn.disabled = false;
+    downloadDriverBtn.disabled = false;
+    startProcessBtn.disabled = false; // Ensure button is re-enabled unless process completes fully without error/reboot
   }
 });
 

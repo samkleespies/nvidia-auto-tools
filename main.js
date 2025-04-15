@@ -1,7 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn, exec } = require('child_process');
-const PowerShell = require('node-powershell');
 const remote = require('@electron/remote/main');
 const fs = require('fs');
 const os = require('os');
@@ -144,6 +143,30 @@ ipcMain.handle('run-nvcleaninstall', async (event, nvciPath, configPath) => {
   } catch (error) {
     console.error('Error running NVCleanInstall:', error);
     return { success: false, message: error.message };
+  }
+});
+
+// Handler to check for existing packaged driver in Downloads
+ipcMain.handle('check-existing-packaged-driver', async () => {
+  try {
+    const downloadsPath = app.getPath('downloads');
+    console.log(`Checking for existing packaged driver in: ${downloadsPath}`);
+    const files = await fs.promises.readdir(downloadsPath);
+    // Look for a file starting with 'NVIDIA_Driver_' and ending with '.exe' (adjust pattern if needed)
+    const driverFile = files.find(file => /^NVCleanstall_NVIDIA_.*\.exe$/i.test(file));
+
+    if (driverFile) {
+      const fullPath = path.join(downloadsPath, driverFile);
+      console.log(`Found existing packaged driver: ${fullPath}`);
+      return { found: true, path: fullPath, filename: driverFile };
+    } else {
+      console.log('No existing packaged driver found.');
+      return { found: false };
+    }
+  } catch (error) {
+    console.error('Error checking for existing packaged driver:', error);
+    // Return found: false in case of error to avoid blocking the process
+    return { found: false, error: error.message };
   }
 });
 
@@ -939,100 +962,78 @@ function positionDDUWindowsSideBySide() {
 async function monitorDDUCompletion() {
   return new Promise((resolve, reject) => {
     console.log('Monitoring for DDU completion...');
-    
+
     let attempts = 0;
     const maxAttempts = 180; // 15 minutes at 5-second intervals
-    
+    const dduCheckInterval = 5000; // 5 seconds
+    const initialDelay = 10000; // 10 seconds
+
     const checkForDDUCompletion = () => {
       attempts++;
-      
+
       if (attempts > maxAttempts) {
         reject(new Error('Timed out waiting for DDU to complete'));
         return;
       }
-      
-      // Use PowerShell to check for DDU process
-      const ps = new PowerShell({
-        executionPolicy: 'Bypass',
-        noProfile: true
-      });
-      
-      ps.addCommand(`
-        $dduProcess = Get-Process | Where-Object { $_.Name -like '*Display Driver Uninstaller*' -or $_.Name -like '*DDU*' } | Select-Object -First 1
-        if ($dduProcess) {
-          Write-Output "DDU is still running"
-          exit 1
+
+      // Use exec with PowerShell command to check for DDU process
+      const dduCheckCommand = `powershell -command "$dduProcess = Get-Process | Where-Object { $_.Name -like '*Display Driver Uninstaller*' -or $_.Name -like '*DDU*' } | Select-Object -First 1; if ($dduProcess) { exit 1 } else { exit 0 }"`;
+
+      exec(dduCheckCommand, (error, stdout, stderr) => {
+        if (error) {
+          if (error.code === 1) {
+            // DDU is still running (exit code 1 means process found)
+            console.log('DDU is still running, checking again in 5s...');
+            setTimeout(checkForDDUCompletion, dduCheckInterval);
+          } else {
+            // Unexpected error checking DDU status
+            console.error(`Error checking DDU status (Code: ${error.code}):`, stderr || error.message);
+            // Continue checking despite the error, as DDU might still finish
+            setTimeout(checkForDDUCompletion, dduCheckInterval);
+          }
         } else {
-          Write-Output "DDU has completed"
-          exit 0
-        }
-      `);
-      
-      ps.invoke()
-        .then(output => {
-          ps.dispose();
-          
-          if (output.includes("DDU has completed")) {
-            // Check if we need to wait for a reboot
-            const rebootCheckPs = new PowerShell({
-              executionPolicy: 'Bypass',
-              noProfile: true
-            });
-            
-            rebootCheckPs.addCommand(`
-              $pendingReboot = Test-Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\PendingFileRenameOperations'
-              if ($pendingReboot) {
-                Write-Output "Reboot pending"
-                exit 2
-              } else {
-                Write-Output "No reboot pending"
-                exit 0
-              }
-            `);
-            
-            rebootCheckPs.invoke()
-              .then(rebootOutput => {
-                rebootCheckPs.dispose();
-                
-                if (rebootOutput.includes("Reboot pending")) {
-                  // Prompt user for reboot instead of automatically doing it
-                  resolve({
-                    success: true,
-                    rebootNeeded: true,
-                    message: 'DDU completed but system needs to reboot before continuing'
-                  });
-                } else {
-                  resolve({
-                    success: true,
-                    rebootNeeded: false,
-                    message: 'DDU completed successfully'
-                  });
-                }
-              })
-              .catch(err => {
-                rebootCheckPs.dispose();
-                console.error('Error checking for pending reboot:', err);
-                // Continue anyway
+          // DDU has completed (exit code 0 means process not found)
+          console.log('DDU process has completed.');
+
+          // Check if a reboot is pending
+          const rebootCheckCommand = `powershell -command "$pendingReboot = Test-Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\PendingFileRenameOperations'; if ($pendingReboot) { exit 2 } else { exit 0 }"`;
+
+          exec(rebootCheckCommand, (rebootError, rebootStdout, rebootStderr) => {
+            if (rebootError) {
+              if (rebootError.code === 2) {
+                // Reboot is pending (exit code 2)
+                console.log('Reboot is pending after DDU completion.');
                 resolve({
                   success: true,
-                  message: 'DDU appears to have completed'
+                  rebootNeeded: true,
+                  message: 'DDU completed but system needs to reboot before continuing'
                 });
+              } else {
+                // Unexpected error checking reboot status
+                console.error(`Error checking for pending reboot (Code: ${rebootError.code}):`, rebootStderr || rebootError.message);
+                // Resolve successfully but indicate uncertainty about reboot
+                 resolve({
+                   success: true,
+                   rebootNeeded: undefined, // Indicate unknown reboot status due to error
+                   message: 'DDU completed, but failed to check reboot status.'
+                 });
+              }
+            } else {
+              // No reboot pending (exit code 0)
+              console.log('No reboot pending after DDU completion.');
+              resolve({
+                success: true,
+                rebootNeeded: false,
+                message: 'DDU completed successfully'
               });
-          } else {
-            // DDU is still running, continue checking
-            setTimeout(checkForDDUCompletion, 5000);
-          }
-        })
-        .catch(err => {
-          ps.dispose();
-          console.error('Error checking DDU status:', err);
-          // Continue checking
-          setTimeout(checkForDDUCompletion, 5000);
-        });
+            }
+          });
+        }
+      });
     };
-    
-    // Start checking
-    setTimeout(checkForDDUCompletion, 10000); // Wait 10 seconds before first check
+
+    // Start checking after initial delay
+    setTimeout(checkForDDUCompletion, initialDelay);
   });
 }
 
@@ -1223,83 +1224,73 @@ function positionInstallerWindowsSideBySide() {
 async function monitorDriverInstallation() {
   return new Promise((resolve, reject) => {
     console.log('Monitoring for driver installation completion...');
-    
+
     let attempts = 0;
     const maxAttempts = 120; // 20 minutes at 10-second intervals
-    
+    const checkInterval = 10000; // 10 seconds
+
     const checkForInstallCompletion = () => {
       attempts++;
-      
+
       if (attempts > maxAttempts) {
         reject(new Error('Timed out waiting for driver installation to complete'));
         return;
       }
-      
-      // Use PowerShell to check for NVIDIA installer processes
-      const ps = new PowerShell({
-        executionPolicy: 'Bypass',
-        noProfile: true
-      });
-      
-      ps.addCommand(`
-        $installerProcesses = Get-Process | Where-Object { 
-          $_.Name -like '*nvidia*' -and 
-          ($_.Name -like '*setup*' -or $_.Name -like '*install*' -or $_.Name -like '*NVCleanstall*') 
-        }
+
+      // Use exec with PowerShell command to check for NVIDIA installer processes and driver status
+      const installCheckCommand = `powershell -command "
+        $installerProcesses = Get-Process | Where-Object {
+          $_.Name -like '*nvidia*' -and
+          ($_.Name -like '*setup*' -or $_.Name -like '*install*' -or $_.Name -like '*NVCleanstall*')
+        };
         
         if ($installerProcesses) {
-          $processList = $installerProcesses | ForEach-Object { $_.Name }
-          Write-Output "NVIDIA installer processes still running: $processList"
-          exit 1
+          exit 1 # Still running
         } else {
-          Write-Output "NVIDIA installation appears to be complete"
-          
           # Check if any NVIDIA display driver is installed now
-          $nvDisplay = Get-WmiObject Win32_VideoController | Where-Object { $_.Name -like '*NVIDIA*' }
+          $nvDisplay = Get-WmiObject Win32_VideoController | Where-Object { $_.Name -like '*NVIDIA*' };
           if ($nvDisplay) {
-            Write-Output "NVIDIA display driver detected: $($nvDisplay.Name)"
-            exit 0
+            exit 0 # Completed successfully
           } else {
-            Write-Output "No NVIDIA display driver detected"
-            exit 2
+            exit 2 # Completed, but no driver detected (needs reboot?)
           }
         }
-      `);
-      
-      ps.invoke()
-        .then(output => {
-          ps.dispose();
-          
-          if (output.includes("NVIDIA installation appears to be complete")) {
-            if (output.includes("NVIDIA display driver detected")) {
-              resolve({
-                success: true,
-                message: 'Driver installation completed successfully'
-              });
-            } else {
-              // Driver installation finished but no NVIDIA driver detected
-              // Could be an error or system needs reboot
-              resolve({
-                success: true,
-                rebootNeeded: true,
-                message: 'Driver installation finished but needs reboot'
-              });
-            }
+      "`;
+
+      exec(installCheckCommand, (error, stdout, stderr) => {
+        if (error) {
+          if (error.code === 1) {
+            // Installation still in progress (exit code 1)
+            console.log('NVIDIA installer process still running, checking again in 10s...');
+            setTimeout(checkForInstallCompletion, checkInterval);
+          } else if (error.code === 2) {
+            // Installation finished, but no driver detected (exit code 2)
+            console.log('NVIDIA installer process finished, but no driver detected (reboot likely needed).');
+             resolve({
+               success: true, // Consider it success in terms of the installer finishing
+               rebootNeeded: true, // Indicate reboot is likely needed
+               message: 'Driver installation process finished, but a reboot may be required to finalize.'
+             });
           } else {
-            // Installation still in progress
-            setTimeout(checkForInstallCompletion, 10000);
+            // Unexpected error checking install status
+            console.error(`Error checking installation status (Code: ${error.code}):`, stderr || error.message);
+            // Continue checking despite the error
+            setTimeout(checkForInstallCompletion, checkInterval);
           }
-        })
-        .catch(err => {
-          ps.dispose();
-          console.error('Error checking installation status:', err);
-          // Continue checking
-          setTimeout(checkForInstallCompletion, 10000);
-        });
+        } else {
+          // Installation completed successfully (exit code 0)
+          console.log('NVIDIA installer process finished and driver detected.');
+          resolve({
+            success: true,
+            rebootNeeded: false,
+            message: 'Driver installation completed successfully'
+          });
+        }
+      });
     };
-    
-    // Start checking after a delay
-    setTimeout(checkForInstallCompletion, 10000); // Wait 10 seconds before first check
+
+    // Start checking after initial delay
+    setTimeout(checkForInstallCompletion, checkInterval); // Wait 10 seconds before first check
   });
 }
 

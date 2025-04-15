@@ -19,12 +19,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@electron/remote": "^2.1.2",
-    "node-powershell": "^5.0.1"
+    "@electron/remote": "^2.1.2"
   },
   "devDependencies": {
-    "electron-builder": "^26.0.12",
-    "electron": "^35.1.5"
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "com.nvidia-driver-auto-tools.app",
