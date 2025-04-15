@@ -1,0 +1,597 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  text-align: center;
+  color: #2d3748;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #76b900; /* NVIDIA green */
+}
+
+h2 {
+  color: #4a5568;
+  margin-bottom: 15px;
+}
+
+.section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.file-input-container {
+  display: flex;
+  gap: 10px;
+}
+
+.file-input-container input {
+  flex: 1;
+}
+
+button {
+  background-color: #4a5568;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #2d3748;
+}
+
+.primary-button {
+  background-color: #76b900; /* NVIDIA green */
+  color: white;
+  font-size: 16px;
+  padding: 12px 24px;
+  display: block;
+  margin: 20px auto;
+  width: 80%;
+  max-width: 400px;
+}
+
+.secondary-button {
+  background-color: #4a5568;
+  color: white;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 15px;
+}
+
+.secondary-button:hover {
+  background-color: #2d3748;
+}
+
+.alt-button {
+  background-color: #718096;
+  color: white;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.alt-button:hover {
+  background-color: #4a5568;
+}
+
+.admin-option {
+  margin-top: 15px;
+  border-top: 1px dotted #ddd;
+  padding-top: 15px;
+}
+
+.additional-actions {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px dashed #ddd;
+  position: relative;
+}
+
+.tooltip {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+.primary-button:hover {
+  background-color: #66a100;
+}
+
+.primary-button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.warning-text {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-left: 4px solid #ffeeba;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.steps {
+  padding-left: 20px;
+  margin-bottom: 20px;
+}
+
+.steps li {
+  margin-bottom: 8px;
+}
+
+.status-container {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.status {
+  display: inline-block;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.status.idle {
+  background-color: #e2e8f0;
+  color: #4a5568;
+}
+
+.status.running {
+  background-color: #ebf8ff;
+  color: #2c5282;
+}
+
+.status.success {
+  background-color: #c6f6d5;
+  color: #276749;
+}
+
+.status.error {
+  background-color: #fed7d7;
+  color: #c53030;
+}
+
+.hidden {
+  display: none;
+}
+
+#progress-container {
+  width: 100%;
+  background-color: #e2e8f0;
+  border-radius: 8px;
+  height: 20px;
+  position: relative;
+  margin-top: 10px;
+  overflow: hidden; /* Ensure the bar doesn't overflow */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+#progress-bar {
+  background: linear-gradient(90deg, #76b900 0%, #8fde00 100%);
+  border-radius: 8px;
+  height: 100%;
+  width: 0;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden; /* For the animation effect */
+}
+
+#progress-bar.progress-started {
+  background: linear-gradient(90deg, #76b900 0%, #8fde00 100%);
+}
+
+#progress-bar.progress-halfway {
+  background: linear-gradient(90deg, #5fa200 0%, #76b900 100%);
+  box-shadow: 0 0 5px rgba(118, 185, 0, 0.5);
+}
+
+#progress-bar.progress-almostdone {
+  background: linear-gradient(90deg, #4c8000 0%, #5fa200 100%);
+  box-shadow: 0 0 8px rgba(118, 185, 0, 0.7);
+}
+
+/* Add a subtle animation to the progress bar */
+#progress-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: progressShine 1.5s linear infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes progressShine {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+#progress-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  line-height: 20px;
+  font-size: 12px;
+  color: white;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
+  font-weight: bold;
+  z-index: 10;
+}
+
+#log-container {
+  margin-top: 30px;
+}
+
+#log {
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: #2d3748;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.monospace-log {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: #1e293b;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid #4a5568;
+  height: 500px; /* Increased height */
+  max-height: 60vh; /* Use viewport height for responsive sizing */
+  scroll-behavior: smooth;
+}
+
+/* New style for indented content in the log */
+.monospace-log span.log-info {
+  display: block;
+  padding-left: 2px;
+}
+
+.monospace-log span.log-detail {
+  display: block;
+  padding-left: 15px;
+  color: #9ca3af;
+}
+
+.log-timestamp {
+  color: #a0aec0;
+  font-weight: normal;
+  margin-right: 5px;
+}
+
+.log-success {
+  color: #68d391;
+}
+
+.log-error {
+  color: #fc8181;
+}
+
+.log-warning {
+  color: #f6ad55;
+}
+
+.log-info {
+  color: #63b3ed;
+}
+
+.log-highlight {
+  color: #fbd38d;
+  font-weight: bold;
+}
+
+.info-text {
+  background-color: #e6f7ff;
+  color: #1e3a8a;
+  padding: 10px;
+  border-left: 4px solid #90cdf4;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.button-return {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+
+/* Navigation buttons */
+.nav-button {
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.nav-button:hover {
+  background-color: #e5e5e5;
+}
+
+/* Screen transitions */
+.fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Extra button styles */
+.button-large {
+  padding: 16px 24px;
+  font-size: 16px;
+}
+
+.log-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  justify-content: flex-end;
+}
+
+.log-controls button {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Add new styles for the driver selector */
+.driver-selector-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.driver-selector {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 250px;
+}
+
+#refresh-drivers {
+  background-color: #718096;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.action-button {
+  background-color: #4a5568;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.action-button:hover {
+  background-color: #2d3748;
+}
+
+.action-button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+/* Workflow steps styling */
+#workflow-container {
+  margin-top: 30px;
+}
+
+.workflow-step {
+  display: flex;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  border-left: 5px solid #ddd;
+  transition: all 0.3s ease;
+}
+
+.workflow-step.active {
+  background-color: #ebf8ff;
+  border-left: 5px solid #63b3ed;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.workflow-step.completed {
+  background-color: #f0fff4;
+  border-left: 5px solid #68d391;
+}
+
+.workflow-step.error {
+  background-color: #fff5f5;
+  border-left: 5px solid #fc8181;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  background-color: #a0aec0;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 20px;
+  margin-right: 15px;
+  flex-shrink: 0;
+  transition: background-color 0.3s ease;
+}
+
+.workflow-step.active .step-number {
+  background-color: #4299e1;
+}
+
+.workflow-step.completed .step-number {
+  background-color: #48bb78;
+}
+
+.workflow-step.error .step-number {
+  background-color: #e53e3e;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h3 {
+  font-size: 18px;
+  margin-bottom: 5px;
+  color: #4a5568;
+}
+
+.current-status {
+  font-size: 14px;
+  font-style: italic;
+  margin-top: 10px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.current-status.waiting {
+  background-color: #edf2f7;
+  color: #4a5568;
+}
+
+.current-status.in-progress {
+  background-color: #ebf8ff;
+  color: #2b6cb0;
+  animation: pulse 2s infinite;
+}
+
+.current-status.monitoring {
+  background-color: #e6fffa;
+  color: #234e52;
+  animation: pulse 2s infinite;
+}
+
+.current-status.completed {
+  background-color: #f0fff4;
+  color: #276749;
+}
+
+.current-status.error {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* Custom animation for the monitoring state */
+.monitoring-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #234e52;
+  margin-left: 5px;
+  vertical-align: middle;
+  animation: pulseDot 1.5s ease-in-out infinite;
+}
+
+.monitoring-dot:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.monitoring-dot:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(0.8); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+} 

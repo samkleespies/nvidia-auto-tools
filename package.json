@@ -1,0 +1,43 @@
+{
+  "name": "nvidia-driver-auto-tools",
+  "version": "1.0.0",
+  "description": "Comprehensive tools for NVIDIA driver management and shader cache cleaning",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "pack": "electron-builder --dir"
+  },
+  "keywords": [
+    "nvidia",
+    "driver",
+    "automation",
+    "ddu",
+    "nvcleaninstall",
+    "shader-cache"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "node-powershell": "^5.0.1"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12",
+    "electron": "^35.1.5"
+  },
+  "build": {
+    "appId": "com.nvidia-driver-auto-tools.app",
+    "productName": "NVIDIA Driver Auto Tools",
+    "win": {
+      "target": "nsis",
+      "icon": "app_icon.ico",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true
+    }
+  }
+}

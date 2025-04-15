@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>NVIDIA Driver Auto Tools</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="app_icon.ico" type="image/x-icon">
+  <style>
+    .home-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 80vh;
+      text-align: center;
+    }
+    
+    .logo {
+      margin-bottom: 40px;
+    }
+    
+    .logo img {
+      width: 120px;
+      height: 120px;
+    }
+    
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 400px;
+      gap: 20px;
+    }
+    
+    .home-button {
+      padding: 20px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .home-button.primary {
+      background-color: #76b900;
+      color: white;
+    }
+    
+    .home-button.secondary {
+      background-color: #4a5568;
+      color: white;
+    }
+    
+    .home-button.primary:hover {
+      background-color: #66a100;
+    }
+    
+    .home-button.secondary:hover {
+      background-color: #2d3748;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Home Screen -->
+  <div id="home-screen" class="container">
+    <div class="home-container">
+      <div class="logo">
+        <img src="app_icon.ico" alt="NVIDIA Logo">
+        <h1>NVIDIA Driver Auto Tools</h1>
+      </div>
+      
+      <div class="button-group">
+        <button id="btn-shader-cache" class="home-button secondary">
+          Clear NVIDIA Shader Cache
+        </button>
+        
+        <button id="btn-driver-tools" class="home-button primary">
+          Driver Installation Tools
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Driver Tools Screen -->
+  <div id="driver-tools-screen" class="container hidden">
+    <h1>NVIDIA Driver Auto Tools</h1>
+    
+    <div class="section">
+      <h2>Configuration</h2>
+      
+      <div class="input-group">
+        <label for="ddu-path">DDU Path:</label>
+        <div class="file-input-container">
+          <input type="text" id="ddu-path" placeholder="Path to DDU.exe">
+          <button id="browse-ddu">Browse</button>
+        </div>
+      </div>
+      
+      <div class="input-group">
+        <label for="nvci-path">NVCleanInstall Path:</label>
+        <div class="file-input-container">
+          <input type="text" id="nvci-path" placeholder="Path to NVCleanInstall.exe">
+          <button id="browse-nvci">Browse</button>
+        </div>
+      </div>
+      
+      <div class="input-group">
+        <label for="driver-version-selector">NVIDIA Driver Version:</label>
+        <div class="driver-selector-container">
+          <select id="driver-version-selector" class="driver-selector">
+            <option value="">Loading driver versions...</option>
+          </select>
+          <button id="refresh-drivers" title="Refresh driver list">↻</button>
+          <button id="download-driver" class="action-button" disabled>Download Selected Driver</button>
+        </div>
+        <div class="tooltip">Select a driver version. The app will check if it's already in your Downloads folder.</div>
+      </div>
+      
+      <div class="button-return">
+        <button id="return-to-home" class="secondary-button">Back to Home</button>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>Process</h2>
+      
+      <button id="start-process" class="primary-button">Start Driver Installation Process</button>
+      
+      <div id="workflow-container">
+        <div class="workflow-step" id="step1">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Create Custom Driver Package</h3>
+            <p>NVCleanInstall will open for you to create a customized driver package.</p>
+            <p class="current-status waiting">Waiting to start</p>
+          </div>
+        </div>
+        
+        <div class="workflow-step" id="step2">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Uninstall Current Drivers</h3>
+            <p>DDU will open for you to uninstall your current NVIDIA drivers.</p>
+            <p class="current-status waiting">Waiting for previous step</p>
+          </div>
+        </div>
+        
+        <div class="workflow-step" id="step3">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Install New Drivers</h3>
+            <p>The customized driver package will automatically install.</p>
+            <p class="current-status waiting">Waiting for previous step</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="status-container">
+        <div id="status" class="status idle">Ready</div>
+        <div id="progress-container" class="hidden">
+          <div id="progress-bar"></div>
+          <div id="progress-text">0%</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="log-container" class="section">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <!-- Shader Cache Screen -->
+  <div id="shader-cache-screen" class="container hidden">
+    <h1>NVIDIA Shader Cache Cleaner</h1>
+    
+    <div class="section">
+      <h2>Shader Cache Cleanup</h2>
+      <p class="info-text">This utility will clear NVIDIA shader cache files on your system, which may help resolve graphical issues or free up disk space.</p>
+      
+      <div class="status-container">
+        <div id="cache-status" class="status idle">Ready</div>
+        <div id="cache-progress-container" class="hidden">
+          <div id="cache-progress-bar"></div>
+          <div id="cache-progress-text">0%</div>
+        </div>
+      </div>
+      
+      <button id="start-cache-cleanup" class="primary-button">Start Shader Cache Cleanup</button>
+      
+      <div class="button-return" style="margin-top: 20px;">
+        <button id="return-from-cache" class="secondary-button">Back to Home</button>
+      </div>
+    </div>
+    
+    <div id="cache-log-container" class="section">
+      <h2>Cleanup Log</h2>
+      <p class="info-text">Complete detailed log of the shader cache clearing process. All entries are preserved between runs.</p>
+      <div class="log-controls">
+        <button id="clear-cache-log" class="alt-button">Clear Log</button>
+        <button id="save-cache-log" class="alt-button">Save Log to File</button>
+      </div>
+      <div id="cache-log" class="monospace-log"></div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html> 

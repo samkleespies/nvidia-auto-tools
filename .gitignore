@@ -1,0 +1,52 @@
+# Node.js / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json # Often committed, but can be ignored if desired
+yarn.lock # If using Yarn
+
+# Electron / electron-builder
+dist/
+release/
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.snap
+*.AppImage
+*.app
+*.zip
+*.tar.gz
+*.nsis
+*.blockmap
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor Files
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Log Files
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+*.bak
+*.backup
+
+# Environment Variables
+.env*
+!.env.example
+
+# Downloaded Drivers (if stored locally)
+# *.exe # Already covered above
+
+# Specific to this project
+main.js.backup
