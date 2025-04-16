@@ -1,4 +1,4 @@
-# NVIDIA Driver Auto Tools
+# NVIDIA Auto Tools
 
 A Windows 11 Electron app that automates NVIDIA driver installation/uninstallation and driver shader cache cleaning.
 
