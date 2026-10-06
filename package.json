@@ -22,8 +22,8 @@
     "@electron/remote": "^2.1.2"
   },
   "devDependencies": {
-    "electron": "^35.1.5",
-    "electron-builder": "^26.0.12"
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.nvidia-driver-auto-tools.app",
@@ -38,5 +38,8 @@
       "allowToChangeInstallationDirectory": true,
       "runAfterFinish": true
     }
+  },
+  "overrides": {
+    "global-agent": "^4.1.3"
   }
 }
