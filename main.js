@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { spawn, exec } = require('child_process');
+const { spawn, exec, execFile } = require('child_process');
 const remote = require('@electron/remote/main');
 const fs = require('fs');
 const os = require('os');
@@ -640,7 +640,7 @@ function positionWindowsSideBySide() {
     `;
     
     // Execute PowerShell script as a shell command
-    exec(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], (error, stdout, stderr) => {
       if (error) {
         console.error(`Error positioning NVCleanInstall window: ${error.message}`);
         return;
@@ -944,7 +944,7 @@ function positionDDUWindowsSideBySide() {
     `;
     
     // Execute PowerShell script as a shell command
-    exec(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], (error, stdout, stderr) => {
       if (error) {
         console.error(`Error positioning DDU window: ${error.message}`);
         return;
@@ -1206,7 +1206,7 @@ function positionInstallerWindowsSideBySide() {
     `;
     
     // Execute PowerShell script as a shell command
-    exec(`powershell -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], (error, stdout, stderr) => {
       if (error) {
         console.error(`Error positioning installer window: ${error.message}`);
         return;
