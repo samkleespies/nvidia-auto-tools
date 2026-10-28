@@ -22,7 +22,7 @@
     "@electron/remote": "^2.1.2"
   },
   "devDependencies": {
-    "electron": "^44.5.1",
+    "electron": "^44.10.0",
     "electron-builder": "^26.15.3"
   },
   "build": {
